@@ -1,0 +1,1567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemma 3 Chat Interface</title>
+    <style>
+        :root {
+            --primary-color: #4f46e5;
+            --primary-hover: #4338ca;
+            --secondary-color: #e0e7ff;
+            --dark-color: #1f2937;
+            --light-color: #f9fafb;
+            --gray-color: #6b7280;
+            --success-color: #10b981;
+            --error-color: #ef4444;
+            --sidebar-width: 280px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        body {
+            background-color: #f3f4f6;
+            color: var(--dark-color);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .app-container {
+            display: flex;
+            flex: 1;
+            height: calc(100vh - 72px); /* Header height */
+        }
+
+        .sidebar {
+            width: var(--sidebar-width);
+            background-color: white;
+            border-right: 1px solid #e5e7eb;
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.3s ease;
+        }
+
+        .sidebar-header {
+            padding: 1rem;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .new-chat-btn {
+            width: 100%;
+            padding: 0.75rem;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 0.375rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .new-chat-btn:hover {
+            background-color: var(--primary-hover);
+        }
+
+        .conversations-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0.5rem;
+        }
+
+        .conversation-item {
+            padding: 0.75rem;
+            border-radius: 0.375rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            transition: background-color 0.2s;
+        }
+
+        .conversation-item:hover {
+            background-color: #f3f4f6;
+        }
+
+        .conversation-item.active {
+            background-color: var(--secondary-color);
+        }
+
+        .conversation-title {
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .conversation-actions {
+            display: flex;
+            gap: 0.5rem;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .conversation-item:hover .conversation-actions {
+            opacity: 1;
+        }
+
+        .conversation-action-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--gray-color);
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+        }
+
+        .conversation-action-btn:hover {
+            background-color: rgba(0, 0, 0, 0.05);
+            color: var(--dark-color);
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        header {
+            background-color: white;
+            padding: 1rem 0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .logo-icon {
+            width: 2.5rem;
+            height: 2.5rem;
+            background-color: var(--primary-color);
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 1.5rem;
+        }
+
+        .logo-text {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .model-info {
+            font-size: 0.875rem;
+            color: var(--gray-color);
+            padding: 0.5rem 0.75rem;
+            background-color: var(--light-color);
+            border-radius: 0.375rem;
+            border: 1px solid #e5e7eb;
+        }
+
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background-color: white;
+            border-radius: 0.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            overflow: hidden;
+            height: 100%;
+        }
+
+        .messages {
+            flex: 1;
+            padding: 1.5rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            min-height: 200px;
+            max-height: calc(100vh - 240px);
+        }
+
+        .message {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .user-message {
+            justify-content: flex-end;
+        }
+
+        .message-avatar {
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .message-avatar.user {
+            background-color: var(--secondary-color);
+            color: var(--primary-color);
+        }
+
+        .message-avatar.bot {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .message-content {
+            max-width: 80%;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            line-height: 1.5;
+        }
+
+        .user-message .message-content {
+            background-color: var(--primary-color);
+            color: white;
+            border-top-right-radius: 0;
+        }
+
+        .bot-message .message-content {
+            background-color: #f3f4f6;
+            border-top-left-radius: 0;
+        }
+
+        .message-time {
+            font-size: 0.75rem;
+            color: var(--gray-color);
+            margin-top: 0.25rem;
+            text-align: right;
+        }
+
+        .input-container {
+            padding: 1rem 1.5rem;
+            display: flex;
+            gap: 0.75rem;
+            border-top: 1px solid #e5e7eb;
+            background-color: #f9fafb;
+        }
+
+        .input-field {
+            flex: 1;
+            position: relative;
+        }
+
+        #user-input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border-radius: 0.375rem;
+            border: 1px solid #d1d5db;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s;
+            resize: none;
+            min-height: 48px;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        #user-input:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
+        }
+
+        .send-button {
+            padding: 0.75rem 1.5rem;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 0.375rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .send-button:hover {
+            background-color: var(--primary-hover);
+        }
+
+        .send-button:disabled {
+            background-color: var(--gray-color);
+            cursor: not-allowed;
+        }
+
+        .loading-indicator {
+            display: inline-block;
+            width: 1rem;
+            height: 1rem;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .cursor {
+            display: inline-block;
+            width: 0.5rem;
+            height: 1.25rem;
+            background-color: var(--primary-color);
+            animation: blink 1s step-end infinite;
+            margin-left: 0.25rem;
+            vertical-align: middle;
+        }
+
+        @keyframes blink {
+            from, to {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0;
+            }
+        }
+
+        .notification {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            padding: 0.75rem 1rem;
+            border-radius: 0.375rem;
+            color: white;
+            font-weight: 500;
+            transform: translateX(120%);
+            transition: transform 0.3s ease-out;
+            z-index: 100;
+            max-width: 300px;
+        }
+
+        .notification.show {
+            transform: translateX(0);
+        }
+
+        .notification.error {
+            background-color: var(--error-color);
+        }
+
+        .notification.info {
+            background-color: var(--primary-color);
+        }
+
+        .welcome-message {
+            text-align: center;
+            color: var(--gray-color);
+            margin: 2rem 0;
+        }
+
+        .welcome-message h2 {
+            font-size: 1.5rem;
+            margin-bottom: 0.75rem;
+            color: var(--dark-color);
+        }
+
+        .welcome-message p {
+            font-size: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .example-prompts {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            justify-content: center;
+            margin-top: 1rem;
+        }
+
+        .example-prompt {
+            padding: 0.5rem 1rem;
+            background-color: #f3f4f6;
+            border: 1px solid #e5e7eb;
+            border-radius: 1rem;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .example-prompt:hover {
+            background-color: #e5e7eb;
+        }
+
+        footer {
+            text-align: center;
+            padding: 1.5rem 0;
+            font-size: 0.875rem;
+            color: var(--gray-color);
+        }
+
+        .api-settings {
+            margin: 1rem auto;
+            max-width: 600px;
+            background-color: white;
+            border-radius: 0.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            padding: 1.5rem;
+        }
+
+        .api-settings h3 {
+            margin-bottom: 1rem;
+            font-size: 1.25rem;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 0.75rem;
+            border-radius: 0.375rem;
+            border: 1px solid #d1d5db;
+            font-size: 1rem;
+        }
+
+        .form-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .button {
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .button-primary {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+        }
+
+        .button-primary:hover {
+            background-color: var(--primary-hover);
+        }
+
+        .button-secondary {
+            background-color: white;
+            color: var(--dark-color);
+            border: 1px solid #d1d5db;
+        }
+
+        .button-secondary:hover {
+            background-color: #f3f4f6;
+        }
+
+        #api-settings-toggle {
+            padding: 0.5rem 1rem;
+            background: none;
+            border: none;
+            color: var(--primary-color);
+            cursor: pointer;
+            font-size: 0.875rem;
+            text-decoration: underline;
+            margin: 0 auto;
+            display: block;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .sidebar-toggle {
+            display: none;
+            position: fixed;
+            left: 1rem;
+            bottom: 1rem;
+            width: 3rem;
+            height: 3rem;
+            border-radius: 50%;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+            z-index: 10;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .edit-title-form {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+            margin-top: 0.5rem;
+        }
+
+        .edit-title-input {
+            flex: 1;
+            padding: 0.5rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.25rem;
+            font-size: 0.875rem;
+        }
+
+        .alternative-methods {
+            margin-top: 1rem;
+            padding: 1rem;
+            background-color: #f3f4f6;
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+            color: var(--gray-color);
+        }
+
+        .message-content h1,
+        .message-content h2,
+        .message-content h3 {
+            margin: 0.5em 0;
+            font-weight: 600;
+        }
+
+        .message-content p {
+            margin: 0.5em 0;
+        }
+
+        .message-content ul {
+            margin: 0.5em 0;
+            padding-left: 1.5em;
+        }
+
+        .message-content li {
+            margin: 0.25em 0;
+        }
+
+        .message-content code {
+            background-color: #e5e7eb;
+            padding: 0.2em 0.4em;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                position: fixed;
+                left: 0;
+                top: 0;
+                bottom: 0;
+                z-index: 100;
+                transform: translateX(-100%);
+                box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+            }
+
+            .sidebar.open {
+                transform: translateX(0);
+            }
+
+            .sidebar-toggle {
+                display: flex;
+            }
+
+            .app-container {
+                height: calc(100vh - 140px);
+            }
+
+            .header-content {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.75rem;
+            }
+
+            .model-info {
+                align-self: flex-start;
+            }
+
+            .message-content {
+                max-width: 90%;
+            }
+
+            .input-container {
+                flex-direction: column;
+            }
+
+            .send-button {
+                width: 100%;
+            }
+
+            .example-prompts {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .example-prompt {
+                text-align: center;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .message-avatar {
+                width: 2rem;
+                height: 2rem;
+                font-size: 0.875rem;
+            }
+
+            .messages {
+                padding: 1rem;
+            }
+
+            .message-content {
+                padding: 0.75rem;
+                font-size: 0.875rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <div class="logo">
+                <div class="logo-icon">G</div>
+                <div class="logo-text">Gemma Chat</div>
+            </div>
+            <div class="model-info">
+                Model: gemma3:27b
+            </div>
+        </div>
+    </header>
+
+    <button id="api-settings-toggle">API Settings</button>
+
+    <div id="api-settings" class="api-settings hidden">
+        <h3>API Configuration</h3>
+        <div class="form-group">
+            <label for="api-url">API URL</label>
+            <input type="text" id="api-url" value="https://fmyd4ovcb1rp11-9000.proxy.runpod.net/api/chat" placeholder="Enter API URL">
+        </div>
+        <div class="alternative-methods">
+            <p><strong>Note:</strong> If you're experiencing CORS issues, you have these options:</p>
+            <ol>
+                <li>Host this page on a proper web server with CORS headers</li>
+                <li>Use a CORS browser extension (for development only)</li>
+                <li>Set up a proxy server that adds CORS headers</li>
+            </ol>
+        </div>
+        <div class="form-actions">
+            <button id="save-settings" class="button button-primary">Save Settings</button>
+            <button id="cancel-settings" class="button button-secondary">Cancel</button>
+        </div>
+    </div>
+
+    <div class="app-container">
+        <!-- Sidebar for chat history -->
+        <div id="sidebar" class="sidebar">
+            <div class="sidebar-header">
+                <button id="new-chat-btn" class="new-chat-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                    <span>New Chat</span>
+                </button>
+            </div>
+            <div id="conversations-list" class="conversations-list">
+                <!-- Conversations will be added here by JavaScript -->
+            </div>
+        </div>
+
+        <!-- Main content area -->
+        <div class="main-content">
+            <div class="chat-container">
+                <div class="messages" id="message-container">
+                    <div class="welcome-message">
+                        <h2>Welcome to Gemma Chat</h2>
+                        <p>Ask any question and get answers from the Gemma 3 model</p>
+                        <div class="example-prompts">
+                            <div class="example-prompt">Why is the sky blue?</div>
+                            <div class="example-prompt">Tell me about quantum computing</div>
+                            <div class="example-prompt">Write a short poem about nature</div>
+                            <div class="example-prompt">How does photosynthesis work?</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="input-container">
+                    <div class="input-field">
+                        <textarea 
+                            id="user-input" 
+                            placeholder="Ask Gemma something..." 
+                            rows="1"></textarea>
+                    </div>
+                    <button id="send-button" class="send-button">
+                        <span>Send</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile sidebar toggle button -->
+    <button id="sidebar-toggle" class="sidebar-toggle">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+    </button>
+
+    <footer>
+        Powered by gemma3:27b API
+    </footer>
+
+    <div id="notification" class="notification"></div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const messageContainer = document.getElementById('message-container');
+            const userInput = document.getElementById('user-input');
+            const sendButton = document.getElementById('send-button');
+            const notification = document.getElementById('notification');
+            const apiSettingsToggle = document.getElementById('api-settings-toggle');
+            const apiSettings = document.getElementById('api-settings');
+            const apiUrlInput = document.getElementById('api-url');
+            const saveSettingsButton = document.getElementById('save-settings');
+            const cancelSettingsButton = document.getElementById('cancel-settings');
+            const sidebar = document.getElementById('sidebar');
+            const sidebarToggle = document.getElementById('sidebar-toggle');
+            const newChatBtn = document.getElementById('new-chat-btn');
+            const conversationsList = document.getElementById('conversations-list');
+            
+            // Default API URL (can be changed in settings)
+            let apiUrl = 'https://v5uj5qtl4c9ukg-11434.proxy.runpod.net/api/chat';
+            
+            // Load saved API URL if exists
+            if (localStorage.getItem('gemmaApiUrl')) {
+                apiUrl = localStorage.getItem('gemmaApiUrl');
+                apiUrlInput.value = apiUrl;
+            }
+            
+            let isProcessing = false;
+            let currentBotMessage = null;
+            let botMessageContent = '';
+            let mockResponseMode = false;
+            let currentConversationId = null;
+            let chatMessages = [];
+
+            // Toggle sidebar on mobile
+            sidebarToggle.addEventListener('click', () => {
+                sidebar.classList.toggle('open');
+            });
+
+            // Toggle API settings panel
+            apiSettingsToggle.addEventListener('click', () => {
+                apiSettings.classList.toggle('hidden');
+            });
+
+            // Save API settings
+            saveSettingsButton.addEventListener('click', () => {
+                apiUrl = apiUrlInput.value.trim();
+                localStorage.setItem('gemmaApiUrl', apiUrl);
+                apiSettings.classList.add('hidden');
+                showNotification('API settings saved', 'info');
+            });
+
+            // Cancel API settings
+            cancelSettingsButton.addEventListener('click', () => {
+                apiUrlInput.value = apiUrl;
+                apiSettings.classList.add('hidden');
+            });
+
+            // Handle textarea auto resize
+            userInput.addEventListener('input', () => {
+                userInput.style.height = 'auto';
+                userInput.style.height = (userInput.scrollHeight) + 'px';
+            });
+
+            // Handle enter key to send message
+            userInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    if (!isProcessing && userInput.value.trim()) {
+                        sendMessage();
+                    }
+                }
+            });
+
+            // Handle send button click
+            sendButton.addEventListener('click', () => {
+                if (!isProcessing && userInput.value.trim()) {
+                    sendMessage();
+                }
+            });
+
+            // Handle new chat button
+            newChatBtn.addEventListener('click', () => {
+                createNewConversation();
+            });
+
+            // Handle example prompts
+            document.querySelectorAll('.example-prompt').forEach(prompt => {
+                prompt.addEventListener('click', () => {
+                    userInput.value = prompt.textContent;
+                    userInput.style.height = 'auto';
+                    userInput.style.height = (userInput.scrollHeight) + 'px';
+                    if (!currentConversationId) {
+                        createNewConversation().then(() => {
+                            sendMessage();
+                        });
+                    } else {
+                        sendMessage();
+                    }
+                });
+            });
+
+            // Show notification
+            function showNotification(message, type = 'error') {
+                notification.textContent = message;
+                notification.className = `notification ${type} show`;
+                
+                setTimeout(() => {
+                    notification.classList.remove('show');
+                }, 5000);
+            }
+
+            // Format time
+            function formatTime() {
+                const now = new Date();
+                return now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            }
+
+            // Format date for conversation list
+            function formatDate(dateString) {
+                const date = new Date(dateString);
+                const today = new Date();
+                const yesterday = new Date(today);
+                yesterday.setDate(yesterday.getDate() - 1);
+                
+                if (date.toDateString() === today.toDateString()) {
+                    return 'Today';
+                } else if (date.toDateString() === yesterday.toDateString()) {
+                    return 'Yesterday';
+                } else {
+                    return date.toLocaleDateString();
+                }
+            }
+
+            // Generate truncated title from message
+            function generateTitle(message) {
+                // Truncate to first 30 chars of first line
+                const firstLine = message.split('\n')[0];
+                return firstLine.length > 30 ? firstLine.substring(0, 30) + '...' : firstLine;
+            }
+            
+            // Create a new conversation
+            async function createNewConversation(initialTitle = "New Conversation") {
+                try {
+                    const response = await fetch('/api/conversations', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            title: initialTitle
+                        })
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error('Failed to create conversation');
+                    }
+                    
+                    const conversation = await response.json();
+                    currentConversationId = conversation.id;
+                    
+                    // Clear the chat messages
+                    messageContainer.innerHTML = '';
+                    chatMessages = [];
+                    
+                    // Add to the sidebar
+                    addConversationToSidebar(conversation);
+                    
+                    return conversation;
+                } catch (error) {
+                    console.error('Error creating conversation:', error);
+                    showNotification('Error creating new conversation');
+                    
+                    // Fallback to local mode if API fails
+                    if (mockResponseMode) {
+                        currentConversationId = Date.now(); // Use timestamp as ID
+                        const mockConversation = {
+                            id: currentConversationId,
+                            title: initialTitle,
+                            created_at: new Date().toISOString()
+                        };
+                        
+                        // Clear the chat messages
+                        messageContainer.innerHTML = '';
+                        chatMessages = [];
+                        
+                        // Add to the sidebar
+                        addConversationToSidebar(mockConversation);
+                        
+                        return mockConversation;
+                    }
+                }
+            }
+            
+            // Add conversation to sidebar
+            function addConversationToSidebar(conversation) {
+                // First, remove active class from any other conversations
+                document.querySelectorAll('.conversation-item').forEach(item => {
+                    item.classList.remove('active');
+                });
+                
+                // Check if conversation already exists in sidebar
+                const existingItem = document.querySelector(`.conversation-item[data-id="${conversation.id}"]`);
+                if (existingItem) {
+                    existingItem.classList.add('active');
+                    
+                    // Update the title if it's different
+                    const titleElem = existingItem.querySelector('.conversation-title');
+                    if (titleElem.textContent !== conversation.title) {
+                        titleElem.textContent = conversation.title;
+                    }
+                    
+                    return;
+                }
+                
+                // Create new conversation item
+                const conversationItem = document.createElement('div');
+                conversationItem.className = 'conversation-item active';
+                conversationItem.dataset.id = conversation.id;
+                
+                conversationItem.innerHTML = `
+                    <div class="conversation-title">${conversation.title}</div>
+                    <div class="conversation-actions">
+                        <button class="conversation-action-btn rename-btn" title="Rename">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                        </svg>
+                        </button>
+                        <button class="conversation-action-btn delete-btn" title="Delete">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="3 6 5 6 21 6"></polyline>
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                            </svg>
+                        </button>
+                    </div>
+                `;
+                
+                // Prepend to the list (newest at top)
+                conversationsList.prepend(conversationItem);
+                
+                // Add event listener for clicking on conversation
+                conversationItem.addEventListener('click', (e) => {
+                    if (!e.target.closest('.conversation-actions')) {
+                        loadConversation(conversation.id);
+                    }
+                });
+                
+                // Add rename functionality
+                const renameBtn = conversationItem.querySelector('.rename-btn');
+                renameBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    renameConversation(conversation.id, conversationItem);
+                });
+                
+                // Add delete functionality
+                const deleteBtn = conversationItem.querySelector('.delete-btn');
+                deleteBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (confirm('Are you sure you want to delete this conversation?')) {
+                        deleteConversation(conversation.id);
+                    }
+                });
+            }
+            
+            // Rename conversation
+            function renameConversation(conversationId, conversationItem) {
+                const titleElem = conversationItem.querySelector('.conversation-title');
+                const currentTitle = titleElem.textContent;
+                
+                // Create edit form
+                const editForm = document.createElement('div');
+                editForm.className = 'edit-title-form';
+                editForm.innerHTML = `
+                    <input type="text" class="edit-title-input" value="${currentTitle}">
+                    <button class="conversation-action-btn save-title-btn" title="Save">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                            <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                            <polyline points="7 3 7 8 15 8"></polyline>
+                        </svg>
+                    </button>
+                    <button class="conversation-action-btn cancel-edit-btn" title="Cancel">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                `;
+                
+                // Replace title with form
+                titleElem.style.display = 'none';
+                conversationItem.querySelector('.conversation-actions').style.display = 'none';
+                conversationItem.insertBefore(editForm, titleElem);
+                
+                // Focus on input
+                const input = editForm.querySelector('.edit-title-input');
+                input.focus();
+                input.select();
+                
+                // Handle save
+                const saveBtn = editForm.querySelector('.save-title-btn');
+                saveBtn.addEventListener('click', async () => {
+                    const newTitle = input.value.trim();
+                    if (newTitle) {
+                        await updateConversationTitle(conversationId, newTitle);
+                        titleElem.textContent = newTitle;
+                    }
+                    
+                    // Cleanup
+                    titleElem.style.display = '';
+                    conversationItem.querySelector('.conversation-actions').style.display = '';
+                    editForm.remove();
+                });
+                
+                // Handle cancel
+                const cancelBtn = editForm.querySelector('.cancel-edit-btn');
+                cancelBtn.addEventListener('click', () => {
+                    titleElem.style.display = '';
+                    conversationItem.querySelector('.conversation-actions').style.display = '';
+                    editForm.remove();
+                });
+                
+                // Handle enter key
+                input.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        saveBtn.click();
+                    } else if (e.key === 'Escape') {
+                        cancelBtn.click();
+                    }
+                });
+            }
+            
+            // Update conversation title
+            async function updateConversationTitle(conversationId, newTitle) {
+                try {
+                    const response = await fetch(`/api/conversations/${conversationId}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            title: newTitle
+                        })
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error('Failed to update conversation');
+                    }
+                    
+                    return await response.json();
+                } catch (error) {
+                    console.error('Error updating conversation:', error);
+                    showNotification('Error updating conversation title');
+                    
+                    // If we're in mock mode, just update the UI
+                    if (mockResponseMode) {
+                        const conversationItem = document.querySelector(`.conversation-item[data-id="${conversationId}"]`);
+                        if (conversationItem) {
+                            const titleElem = conversationItem.querySelector('.conversation-title');
+                            titleElem.textContent = newTitle;
+                        }
+                    }
+                }
+            }
+            
+            // Delete conversation
+            async function deleteConversation(conversationId) {
+                try {
+                    const response = await fetch(`/api/conversations/${conversationId}`, {
+                        method: 'DELETE'
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error('Failed to delete conversation');
+                    }
+                    
+                    // Remove from sidebar
+                    const conversationItem = document.querySelector(`.conversation-item[data-id="${conversationId}"]`);
+                    if (conversationItem) {
+                        conversationItem.remove();
+                    }
+                    
+                    // If this was the current conversation, create a new one
+                    if (currentConversationId === conversationId) {
+                        createNewConversation();
+                    }
+                    
+                    showNotification('Conversation deleted', 'info');
+                } catch (error) {
+                    console.error('Error deleting conversation:', error);
+                    showNotification('Error deleting conversation');
+                    
+                    // If we're in mock mode, just update the UI
+                    if (mockResponseMode) {
+                        const conversationItem = document.querySelector(`.conversation-item[data-id="${conversationId}"]`);
+                        if (conversationItem) {
+                            conversationItem.remove();
+                        }
+                        
+                        // If this was the current conversation, create a new one
+                        if (currentConversationId === conversationId) {
+                            createNewConversation();
+                        }
+                    }
+                }
+            }
+            
+            // Load a conversation
+            async function loadConversation(conversationId) {
+                try {
+                    // Set active conversation in sidebar
+                    document.querySelectorAll('.conversation-item').forEach(item => {
+                        item.classList.remove('active');
+                    });
+                    
+                    const conversationItem = document.querySelector(`.conversation-item[data-id="${conversationId}"]`);
+                    if (conversationItem) {
+                        conversationItem.classList.add('active');
+                    }
+                    
+                    // Close sidebar on mobile
+                    sidebar.classList.remove('open');
+                    
+                    // Clear current messages
+                    messageContainer.innerHTML = '';
+                    
+                    // Set current conversation ID
+                    currentConversationId = conversationId;
+                    
+                    // Fetch conversation data
+                    const response = await fetch(`/api/conversations/${conversationId}`);
+                    
+                    if (!response.ok) {
+                        throw new Error('Failed to load conversation');
+                    }
+                    
+                    const conversation = await response.json();
+                    chatMessages = conversation.messages;
+                    
+                    // Display messages
+                    chatMessages.forEach(msg => {
+                        if (msg.role === 'user') {
+                            addUserMessage(msg.content);
+                        } else if (msg.role === 'assistant') {
+                            addBotMessage(msg.content);
+                        }
+                    });
+                    
+                    // Scroll to bottom
+                    scrollToBottom();
+                } catch (error) {
+                    console.error('Error loading conversation:', error);
+                    showNotification('Error loading conversation');
+                    
+                    // If we're in mock mode, just update the UI
+                    if (mockResponseMode) {
+                        // Clear current messages
+                        messageContainer.innerHTML = '';
+                        
+                        // Set current conversation ID
+                        currentConversationId = conversationId;
+                        
+                        // Create welcome message if no messages
+                        if (chatMessages.length === 0) {
+                            const welcomeDiv = document.createElement('div');
+                            welcomeDiv.className = 'welcome-message';
+                            welcomeDiv.innerHTML = `
+                                <h2>Welcome to Gemma Chat</h2>
+                                <p>Ask any question and get answers from the Gemma 3 model</p>
+                                <div class="example-prompts">
+                                    <div class="example-prompt">Why is the sky blue?</div>
+                                    <div class="example-prompt">Tell me about quantum computing</div>
+                                    <div class="example-prompt">Write a short poem about nature</div>
+                                    <div class="example-prompt">How does photosynthesis work?</div>
+                                </div>
+                            `;
+                            messageContainer.appendChild(welcomeDiv);
+                            
+                            // Rebind example prompts
+                            welcomeDiv.querySelectorAll('.example-prompt').forEach(prompt => {
+                                prompt.addEventListener('click', () => {
+                                    userInput.value = prompt.textContent;
+                                    userInput.style.height = 'auto';
+                                    userInput.style.height = (userInput.scrollHeight) + 'px';
+                                    sendMessage();
+                                });
+                            });
+                        }
+                    }
+                }
+            }
+
+            // Add a user message to the chat
+            function addUserMessage(content) {
+                const messageElement = document.createElement('div');
+                messageElement.className = 'message user-message';
+                
+                messageElement.innerHTML = `
+                    <div class="message-content">
+                        ${content}
+                        <div class="message-time">${formatTime()}</div>
+                    </div>
+                    <div class="message-avatar user">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="12" cy="7" r="4"></circle>
+                        </svg>
+                    </div>
+                `;
+                
+                // Remove welcome message if present
+                const welcomeMessage = document.querySelector('.welcome-message');
+                if (welcomeMessage) {
+                    welcomeMessage.remove();
+                }
+                
+                messageContainer.appendChild(messageElement);
+                scrollToBottom();
+            }
+
+            // Add a bot message without animation
+            function addBotMessage(content) {
+                const messageElement = document.createElement('div');
+                messageElement.className = 'message bot-message';
+                
+                messageElement.innerHTML = `
+                    <div class="message-avatar bot">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <polygon points="10 8 16 12 10 16 10 8"></polygon>
+                        </svg>
+                    </div>
+                    <div class="message-content">
+                        <span class="bot-response">${marked.parse(content)}</span>
+                        <div class="message-time">${formatTime()}</div>
+                    </div>
+                `;
+                
+                messageContainer.appendChild(messageElement);
+                scrollToBottom();
+            }
+
+            // Create bot message with cursor
+            function createBotMessage() {
+                const messageElement = document.createElement('div');
+                messageElement.className = 'message bot-message';
+                
+                messageElement.innerHTML = `
+                    <div class="message-avatar bot">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <polygon points="10 8 16 12 10 16 10 8"></polygon>
+                        </svg>
+                    </div>
+                    <div class="message-content">
+                        <span class="bot-response"></span>
+                        <span class="cursor"></span>
+                        <div class="message-time">${formatTime()}</div>
+                    </div>
+                `;
+                
+                messageContainer.appendChild(messageElement);
+                return messageElement;
+            }
+
+            // Update bot message with new content
+            function updateBotMessage(messageElement, content) {
+                const responseElement = messageElement.querySelector('.bot-response');
+                responseElement.innerHTML = marked.parse(content);
+                scrollToBottom();
+            }
+
+            // Finalize bot message (remove cursor)
+            function finalizeBotMessage(messageElement) {
+                const cursor = messageElement.querySelector('.cursor');
+                if (cursor) {
+                    cursor.remove();
+                }
+            }
+
+            // Scroll to bottom of chat
+            function scrollToBottom() {
+                messageContainer.scrollTop = messageContainer.scrollHeight;
+            }
+
+            // Load conversations on startup
+            async function loadConversations() {
+                try {
+                    const response = await fetch('/api/conversations');
+                    
+                    if (!response.ok) {
+                        throw new Error('Failed to load conversations');
+                    }
+                    
+                    const conversations = await response.json();
+                    
+                    // Sort by updated_at, newest first
+                    conversations.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+                    
+                    // Add to sidebar
+                    conversations.forEach(conversation => {
+                        addConversationToSidebar(conversation);
+                    });
+                    
+                    // Load the most recent conversation or create a new one
+                    if (conversations.length > 0) {
+                        loadConversation(conversations[0].id);
+                    } else {
+                        createNewConversation();
+                    }
+                } catch (error) {
+                    console.error('Error loading conversations:', error);
+                    showNotification('Error loading conversations, starting in local mode', 'info');
+                    
+                    // Switch to mock mode if API fails
+                    mockResponseMode = true;
+                    
+                    // Create a new conversation
+                    createNewConversation();
+                }
+            }
+
+            // Simulate a streaming response (for when CORS prevents actual streaming)
+            async function simulateStreamingResponse(message) {
+                // Sample responses to common questions (expand this as needed)
+                const responses = {
+                    "why is the sky blue": "The sky appears blue because of a phenomenon called Rayleigh scattering. Sunlight contains all colors of the visible spectrum, but blue light has a shorter wavelength and is scattered more efficiently by air molecules in the atmosphere. This scattered blue light comes to us from all directions in the sky, making it appear blue. At sunrise and sunset, light travels through more atmosphere, scattering even more blue light away, which is why we see more red and orange colors during these times.",
+                    "tell me about quantum computing": "Quantum computing uses quantum mechanics to process information in fundamentally different ways than classical computers. While classical computers use bits (0s and 1s), quantum computers use quantum bits or 'qubits' that can exist in multiple states simultaneously through superposition. This allows quantum computers to explore many possibilities at once.\n\nQuantum computers also leverage entanglement, where qubits become interconnected and the state of one instantly affects others regardless of distance. These properties give quantum computers potential advantages for certain problems like factoring large numbers, searching unsorted databases, and simulating quantum systems.\n\nHowever, quantum computers face significant challenges including maintaining qubit coherence (preventing environmental interference), scaling to useful sizes, and developing appropriate algorithms. Despite these challenges, companies like IBM, Google, and others are making steady progress in the field.",
+                    "write a short poem about nature": "Silent forests breathe with life,\nSunlight filters through the leaves.\nRivers carve their ancient paths,\nWhispering secrets to the trees.\n\nMountains reach for distant skies,\nWildflowers dance in gentle breeze.\nIn nature's grand tapestry,\nWe find both strength and fragile peace.",
+                    "how does photosynthesis work": "Photosynthesis is the process plants use to convert light energy into chemical energy. It occurs primarily in the chloroplasts of plant cells, especially in leaf cells.\n\nThe process begins when chlorophyll (the green pigment in plants) absorbs sunlight. This energizes electrons in the chlorophyll molecules, initiating a chain of chemical reactions. The plant takes in carbon dioxide through tiny pores called stomata and water through its roots.\n\nUsing the captured light energy, plants convert CO₂ and water into glucose (sugar) and oxygen. The chemical equation is: 6CO₂ + 6H₂O + light energy → C₆H₁₂O₆ + 6O₂\n\nThe glucose serves as food for the plant, while oxygen is released as a byproduct. This process is essential for life on Earth as it produces oxygen for animals to breathe and serves as the base of most food chains."
+                };
+                
+                // Default response for unknown questions
+                let responseText = "I'm a simulated response due to CORS restrictions. In actual implementation, this would connect to the Gemma API. Your question was: \"" + message + "\"\n\nTo fix the CORS issue, consider using a proxy server or hosting this page on a proper web server.";
+                
+                // Check if we have a canned response for this query
+                const lowerMessage = message.toLowerCase();
+                for (const [key, value] of Object.entries(responses)) {
+                    if (lowerMessage.includes(key)) {
+                        responseText = value;
+                        break;
+                    }
+                }
+                
+                // Split the response into chunks to simulate streaming
+                const words = responseText.split(' ');
+                let accumulatedText = '';
+                
+                // Simulate streaming word by word with varying speed
+                for (let i = 0; i < words.length; i++) {
+                    accumulatedText += (i > 0 ? ' ' : '') + words[i];
+                    updateBotMessage(currentBotMessage, accumulatedText);
+                    
+                    // Random delay between 50-150ms to simulate typing
+                    await new Promise(resolve => setTimeout(resolve, 50 + Math.random() * 100));
+                }
+                
+                // Final update
+                updateBotMessage(currentBotMessage, responseText);
+                finalizeBotMessage(currentBotMessage);
+                
+                // Update conversation title if it's the first message
+                if (chatMessages.length === 0) {
+                    const title = generateTitle(message);
+                    updateConversationTitle(currentConversationId, title);
+                }
+                
+                // Add to chat messages array (mock storage)
+                chatMessages.push(
+                    { role: "user", content: message },
+                    { role: "assistant", content: responseText }
+                );
+            }
+
+            // Send message to API
+            async function sendMessage() {
+                const message = userInput.value.trim();
+                if (!message || isProcessing) return;
+                
+                isProcessing = true;
+                sendButton.disabled = true;
+                sendButton.innerHTML = '<span class="loading-indicator"></span>';
+                
+                // Make sure we have a conversation
+                if (!currentConversationId) {
+                    await createNewConversation();
+                }
+                
+                // Add user message
+                addUserMessage(message);
+                
+                // Add to chat messages array
+                chatMessages.push({ role: "user", content: message });
+                
+                // Create bot message with typing indicator
+                currentBotMessage = createBotMessage();
+                botMessageContent = '';
+                
+                // Prepare API request with conversation history
+                const requestBody = {
+                    model: "gemma3:27b",
+                    messages: chatMessages,
+                    stream: true,
+                    conversation_id: currentConversationId
+                };
+                
+                try {
+                    if (mockResponseMode) {
+                        // Use mock response mode if enabled
+                        await simulateStreamingResponse(message);
+                    } else {
+                        // Attempt to use actual API
+                        const response = await fetch(apiUrl, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify(requestBody)
+                        });
+                        
+                        if (!response.ok) {
+                            throw new Error(`API error: ${response.status}`);
+                        }
+                        
+                        const reader = response.body.getReader();
+                        const decoder = new TextDecoder();
+                        
+                        while (true) {
+                            const { value, done } = await reader.read();
+                            
+                            if (done) {
+                                break;
+                            }
+                            
+                            const chunk = decoder.decode(value);
+                            const lines = chunk.split('\n').filter(line => line.trim());
+                            
+                            for (const line of lines) {
+                                try {
+                                    const data = JSON.parse(line);
+                                    
+                                    if (data.message && data.message.content) {
+                                        botMessageContent += data.message.content;
+                                        updateBotMessage(currentBotMessage, botMessageContent);
+                                    }
+                                    
+                                    if (data.done === true) {
+                                        finalizeBotMessage(currentBotMessage);
+                                        
+                                        // Add to chat messages array
+                                        chatMessages.push({ role: "assistant", content: botMessageContent });
+                                        
+                                        // Update conversation title if it's the first message
+                                        if (chatMessages.length === 2) {
+                                            const title = generateTitle(message);
+                                            updateConversationTitle(currentConversationId, title);
+                                        }
+                                    }
+                                } catch (e) {
+                                    console.error('Error parsing JSON:', e);
+                                }
+                            }
+                        }
+                        
+                        // Finalize message if not already done
+                        finalizeBotMessage(currentBotMessage);
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    
+                    if (error.message.includes('CORS') || error.message.includes('NetworkError')) {
+                        // Switch to mock mode on CORS errors
+                        if (!mockResponseMode) {
+                            mockResponseMode = true;
+                            showNotification('CORS error detected. Switching to simulation mode.', 'info');
+                            await simulateStreamingResponse(message);
+                        } else {
+                            updateBotMessage(currentBotMessage, 'Sorry, I encountered a CORS error while connecting to the API. Running in simulation mode instead.');
+                            finalizeBotMessage(currentBotMessage);
+                            
+                            // Add to chat messages array
+                            chatMessages.push({ role: "assistant", content: 'Sorry, I encountered a CORS error while connecting to the API. Running in simulation mode instead.' });
+                        }
+                    } else {
+                        showNotification('Error connecting to API: ' + error.message);
+                        
+                        // Update bot message to show error
+                        updateBotMessage(currentBotMessage, 'Sorry, I encountered an error while processing your request.');
+                        finalizeBotMessage(currentBotMessage);
+                        
+                        // Add to chat messages array
+                        chatMessages.push({ role: "assistant", content: 'Sorry, I encountered an error while processing your request.' });
+                    }
+                } finally {
+                    // Reset UI state
+                    userInput.value = '';
+                    userInput.style.height = 'auto';
+                    sendButton.disabled = false;
+                    sendButton.innerHTML = '<span>Send</span>';
+                    isProcessing = false;
+                }
+            }
+
+            // Load conversations on startup
+            loadConversations();
+
+            // Initial focus
+            userInput.focus();
+        });
+    </script>
+</body>
+</html>
