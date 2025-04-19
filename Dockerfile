@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y \
 RUN curl -fsSL https://ollama.com/install.sh | sh
 
 # Create working directory
-WORKDIR /workspace/gemma3
+WORKDIR /workspace/gemma
 
 # Copy application files
 COPY requirements.txt .
@@ -36,4 +36,4 @@ ENV OLLAMA_HOST=localhost
 ENV DEFAULT_MODEL=gemma3:27b
 
 # Command to run the server
-CMD ["/workspace/gemma3/start.sh"]
+CMD ["/workspace/gemma/start.sh"]
