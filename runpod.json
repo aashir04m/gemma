@@ -1,0 +1,30 @@
+{
+    "id": "ollama-fastapi-proxy",
+    "name": "Ollama FastAPI Proxy",
+    "description": "A template for running Ollama with a FastAPI proxy on RunPod",
+    "categories": ["API", "LLM", "AI"],
+    "docker": {
+      "image": "user/ollama-fastapi-proxy:latest",
+      "ports": {
+        "8000": "HTTP",
+        "11434": "HTTP"
+      }
+    },
+    "welcome": {
+      "title": "Ollama FastAPI Proxy",
+      "body": "Your Ollama API with FastAPI proxy is now running!\n\nUse the following endpoints:\n- /api/chat - For chat completions\n- /api/models - List available models\n- /api/pull - Pull new models"
+    },
+    "env": {
+      "DEFAULT_MODEL": {
+        "title": "Default Model",
+        "description": "The model to pull on startup (e.g., llama3, llama3:instruct, mixtral)",
+        "type": "string",
+        "default": "llama3"
+      }
+    },
+    "resources": {
+      "gpu": {
+        "min": 1
+      }
+    }
+  }
